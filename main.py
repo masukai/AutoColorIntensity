@@ -156,7 +156,8 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         return
 
     def BGR(self):
-        self.bgr = cv2.cvtColor(self.check, cv2.COLOR_HSV2RGB)
+        self.bgr = cv2.cvtColor(self.check, cv2.COLOR_HSV2RGB_FULL)
+        # self.bgr = cv2.cvtColor(self.check, cv2.COLOR_HSV2BGR)
         return
 
     def GRAY(self):
@@ -167,11 +168,35 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         self.gray = pow(img_grayL, 1.0 / 2.2) * 255
         data = np.ravel(self.gray)
         data_0 = data[data > 0]
-        print(data_0)
-        plt.hist(data_0)
-        plt.savefig("hist.png", bbox_inches='tight', pad_inches=0.1)
+        path = "../{0}_save_values".format(self.folder_name)
+        os.makedirs(path, exist_ok=True)
+        os.chdir(path)
+        with open("{0}_pixels_value.csv".format(self.file_name), "w") as f:
+            writer = csv.writer(f, lineterminator="\n")
+            writer.writerow(["mean", np.mean(data_0)])
+            writer.writerow(["values"])
+            for i in range(len(data_0)):
+                writer.writerow([data_0[i]])
+        os.chdir("../{0}".format(self.folder_name))
+        # print(data_0)
+
+        hist, edges = np.histogram(data_0, bins=16, density=True)
+        w = edges[1] - edges[0]
+        hist = hist * w
+        path = "../{0}_save_hist".format(self.folder_name)
+        os.makedirs(path, exist_ok=True)
+        os.chdir(path)
+        plt.bar(edges[:-1], hist, w, color="gray", edgecolor="black")
+        plt.plot([np.mean(data_0), np.mean(data_0)], [0, 1], color="red",
+                 label="mean: {0:.2f}".format(np.mean(data_0)))
+        plt.xlabel("Grayscale values")
+        plt.ylabel("Probability of occurrence, bins=16")
+        plt.ylim(0, 0.5)
+        plt.legend()
+        plt.savefig("hist_{0}.png".format(self.file_name), dpi=360, bbox_inches='tight', pad_inches=0.1)
         plt.pause(0.3)  # 計算速度を上げる場合はコメントアウト
         plt.clf()
+        os.chdir("../{0}".format(self.folder_name))
         return
 
     def save_image(self):  # 画像の保存
@@ -182,7 +207,7 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         # cv2.imwrite("{0}_gauss.jpg".format(self.file_name), self.gauss)
         # cv2.imwrite("{0}_bin.jpg".format(self.file_name), self.bin)
         # cv2.imwrite("{0}_cl.jpg".format(self.file_name), self.cl)
-        cv2.imwrite("{0}_check.jpg".format(self.file_name), self.check)
+        # cv2.imwrite("{0}_check.jpg".format(self.file_name), self.check)
         cv2.imwrite("{0}_bgr.jpg".format(self.file_name), self.bgr)
         cv2.imwrite("{0}_gray.jpg".format(self.file_name), self.gray)
         os.chdir("../{0}".format(self.folder_name))
