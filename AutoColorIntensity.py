@@ -7,62 +7,54 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import time
-from multiprocessing import Pool
-import multiprocessing as multi
 
 # _listはリスト
 # np_はnp.arrayに格納されている
 
 
-def main():  # メイン関数
+def main(scale, ext, name, HSV_u, HSV_l, cl, gauk, gaun, closing_on):  # メイン関数
     start_time = time.time()
 
     # 変数調整はここで行う
-    PtoC = 1.0 / 28.3889  # pixel to cm  ImageJ等で前もって計測
+    PtoC = 1.0 / scale  # pixel to cm  ImageJ等で前もって計測
     # 校正の必要あり。複数枚で確認が要必要。
-    extension = ".jpg"  # 拡張子は調節して使う
+    extension = ext  # 拡張子は調節して使う
     size_ex = int(len(extension)) * -1
     # binaryとclosingの調節はMainPGArea内で直接行うこと
 
     # 以下メインの流れ
-    folder_name = "photo"
+    folder_name = name
     path = "./" + folder_name
     os.chdir(path)
-    name_list, area_list = procedure(PtoC, extension, size_ex, folder_name)
+    name_list, area_list = procedure(
+        PtoC, extension, size_ex, folder_name, HSV_u, HSV_l, cl, gauk, gaun, closing_on)
     os.chdir("../")
     savefile(folder_name, name_list, area_list)
 
     # 計測(実測)値と計算値の比較用 基本的にコメントアウト
     # verification(folder_name)
 
-    print(">>> complete {0:.2f} sec <<<".format(time.time() - start_time))
-    return
+    if __name__ != 'AutoColorIntensity':
+        print(">>> complete {0:.2f} sec <<<".format(time.time() - start_time))
+        return
+    else:
+        return time.time() - start_time
 
 
-def Multiprocessing(data):
-    jpg_list, folder_name, i, PtoC, size_ex = data
-    my_file = jpg_list[i]
-    name = my_file[:size_ex]
-    print("{0}/{1}: {2}".format(i + 1, len(jpg_list), name))
-    img = cv2.imread(my_file)
-    obj = MainPGArea(name, img, folder_name)
-    return name, round(obj.pixels * (PtoC ** 2), 2)  # 小数点以下2桁
-
-
-def procedure(PtoC, extension, size_ex, folder_name):
+def procedure(PtoC, extension, size_ex, folder_name, HSV_u, HSV_l, cl, gauk, gaun, closing_on):
     jpg_list = glob.glob("*{0}".format(extension))  # JPGの探索とループ
     name_list = []
     area_list = []
-    p = Pool(multi.cpu_count())  # コア数最大使用 multi.cpu_count()
-    data = [(jpg_list, folder_name, i, PtoC, size_ex)
-            for i in range(len(jpg_list))]
-    try:
-        result = p.map(Multiprocessing, data)
-        name_list.extend([i[0] for i in result])
-        area_list.extend([i[1] for i in result])
-    except Exception as e:
-        print(e)
-    p.close()
+    for i in range(len(jpg_list)):
+        my_file = jpg_list[i]
+        name = my_file[:size_ex]
+        name_list.append(name)
+        if __name__ != 'AutoArea':
+            print("{0}/{1}: {2}".format(i + 1, len(jpg_list), name))
+        img = cv2.imread(my_file)
+        obj = MainPGArea(name, img, folder_name, HSV_u,
+                         HSV_l, cl, gauk, gaun, closing_on)
+        area_list.append(round(obj.pixels * (PtoC ** 2), 2))  # 小数点以下2桁
     return name_list, area_list
 
 
@@ -115,15 +107,22 @@ def verification(folder_name):
 
 
 class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>>2値化して判別
-    def __init__(self, file_name, img, folder_name):
+    def __init__(self, file_name, img, folder_name, HSV_u, HSV_l, cl, gauk, gaun, closing_on):
         self.file_name = file_name
         self.img = img
         self.folder_name = folder_name
+        self.HSV_u = HSV_u
+        self.HSV_l = HSV_l
+        self.cl = cl
+        self.gauk = gauk
+        self.gaun = gaun
+        self.closing_on = closing_on
         self.pixels = 0
         self.hsv_transration()
         self.gauss_transration()
         self.hsv_binary()
-        self.closing()
+        if self.closing_on:
+            self.closing()
         self.intensity()
         self.BGR()
         self.GRAY()
@@ -135,17 +134,18 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         return
 
     def gauss_transration(self):  # ガウス変換
-        self.gauss = cv2.GaussianBlur(self.hsv, (15, 15), 3)  # フィルタの大きさ
+        self.gauss = cv2.GaussianBlur(
+            self.hsv, (self.gauk, self.gauk), self.gaun)  # フィルタの大きさ
         return
 
     def hsv_binary(self):  # HSV制限2値化
-        lower = np.array([3, 48, 0])  # 下限 0 0 0
-        upper = np.array([36, 255, 95])  # 上限 180 255 255
+        lower = np.array(self.HSV_l)  # 下限 0 0 0
+        upper = np.array(self.HSV_u)  # 上限 180 255 255
         self.bin = cv2.inRange(self.gauss, lower, upper)
         return
 
     def closing(self):  # 膨張収縮処理により穴埋め
-        kernel = np.ones((19, 19), np.uint8)
+        kernel = np.ones((self.cl, self.cl), np.uint8)
         self.cl = cv2.morphologyEx(self.bin, cv2.MORPH_CLOSE, kernel)
         return
 
@@ -194,7 +194,7 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         plt.ylim(0, 0.5)
         plt.legend()
         plt.savefig("hist_{0}.png".format(self.file_name), dpi=360, bbox_inches='tight', pad_inches=0.1)
-        plt.pause(0.3)  # 計算速度を上げる場合はコメントアウト
+        # plt.pause(0.3)  # 計算速度を上げる場合はコメントアウト
         plt.clf()
         os.chdir("../{0}".format(self.folder_name))
         return
@@ -206,7 +206,10 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         # cv2.imwrite("{0}_hsv.jpg".format(self.file_name), self.hsv)
         # cv2.imwrite("{0}_gauss.jpg".format(self.file_name), self.gauss)
         # cv2.imwrite("{0}_bin.jpg".format(self.file_name), self.bin)
-        # cv2.imwrite("{0}_cl.jpg".format(self.file_name), self.cl)
+        if self.closing_on:
+            cv2.imwrite("{0}_cl.jpg".format(self.file_name), self.cl)
+        else:
+            cv2.imwrite("{0}_bin.jpg".format(self.file_name), self.bin)
         # cv2.imwrite("{0}_check.jpg".format(self.file_name), self.check)
         cv2.imwrite("{0}_bgr.jpg".format(self.file_name), self.bgr)
         cv2.imwrite("{0}_gray.jpg".format(self.file_name), self.gray)
@@ -219,4 +222,13 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
 
 
 if __name__ == '__main__':
-    main()
+    scale = 28.3889
+    ext = ".jpg"
+    name = "photo"
+    HSV_u = [36, 255, 95]
+    HSV_l = [3, 48, 0]
+    cl = 19
+    gauk = 15
+    gaun = 3
+    closing_on = True
+    main(scale, ext, name, HSV_u, HSV_l, cl, gauk, gaun, closing_on)

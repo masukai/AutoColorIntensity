@@ -1,7 +1,7 @@
 # AutoColorIntensity
 
 This **AutoColorIntensity** can calculate something's area and color intensities (gradations) in each picture repeatedly by Python 3 (3.8.6) instead of [ImageJ](https://imagej.nih.gov/ij/).
-**AutoColorIntensity** is the Additional version of [AutoArea](https://github.com/masukai/AutoArea).
+**AutoColorIntensity** is the Additional version of [AutoArea](https://github.com/masukai/AutoArea) and [AutoArea-GUI](https://github.com/masukai/AutoArea-GUI).
 
 ## Dependencies
 
@@ -42,6 +42,14 @@ Move to _AutoColorIntensity_ directory and type below,
 ```
 python(3) main.py
 ```
+
+If you use the GUI mode, please type below.
+
+```
+python(3) gui.py
+```
+
+then, the GUI will open.
 
 ### Third Step
 
