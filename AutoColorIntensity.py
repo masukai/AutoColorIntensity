@@ -150,7 +150,10 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         return
 
     def intensity(self):
-        filter = np.array([self.cl] * 3)
+        if self.closing_on:
+            filter = np.array([self.cl] * 3)
+        else:
+            filter = np.array([self.bin] * 3)
         filter = np.transpose(filter, (1, 2, 0))
         self.check = self.hsv * filter
         return
@@ -217,7 +220,10 @@ class MainPGArea:  # 色調に差があり、輪郭になる場合HSVに変換>>
         return
 
     def calculation_area(self):  # 面積pixel分の計算
-        self.pixels = cv2.countNonZero(self.cl)  # 計算する画像の名前に変更
+        if self.closing_on:
+            self.pixels = cv2.countNonZero(self.cl)  # 計算する画像の名前に変更
+        else:
+            self.pixels = cv2.countNonZero(self.bin)
         return
 
 
