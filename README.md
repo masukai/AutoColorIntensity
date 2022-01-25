@@ -1,3 +1,7 @@
+This document was written by Kaito Masuda (masukai9612kf@gmail.com)
+
+---
+
 # AutoColorIntensity
 
 This **AutoColorIntensity** can calculate something's area and color intensities (gradations) in each picture repeatedly by Python 3 (3.8.6) instead of [ImageJ](https://imagej.nih.gov/ij/).
